@@ -8,8 +8,9 @@ import Carbon.HIToolbox
 ///    app's own windows is focused. Needs no permission, so the sound can be
 ///    tried immediately.
 ///  - **global** — a `CGEventTap` hears the whole system, which is what Klack
-///    actually does. That needs Accessibility, which is never requested
-///    silently: `AXIsProcessTrusted()` is checked and the caller is told.
+///    actually does. That needs **Input Monitoring** — a listen-only keyboard
+///    tap is gated by kTCCServiceListenEvent, not by Accessibility, though
+///    Accessibility also permits one. Nothing is ever requested silently.
 final class KeyMonitor {
 
     static let shared = KeyMonitor()
@@ -21,6 +22,16 @@ final class KeyMonitor {
 
     var hasAccessibility: Bool { AXIsProcessTrusted() }
 
+    /// A `.listenOnly` keyboard tap is gated by **Input Monitoring**
+    /// (kTCCServiceListenEvent), which is a different grant from
+    /// Accessibility. Checking only the latter reports success while the tap
+    /// sits there receiving nothing.
+    var hasInputMonitoring: Bool { CGPreflightListenEventAccess() }
+
+    /// Whether the tap is not just created but actually live. macOS disables a
+    /// tap whose grant went stale, and it does so silently.
+    var tapEnabled: Bool { tap.map { CGEvent.tapIsEnabled(tap: $0) } ?? false }
+
     func startLocal() {
         guard local == nil else { return }
         local = NSEvent.addLocalMonitorForEvents(
@@ -30,18 +41,40 @@ final class KeyMonitor {
         }
     }
 
-    /// Returns false when Accessibility has not been granted; nothing is
-    /// prompted for.
+    /// Why the global tap is not running, or nil when it is.
+    private(set) var blockedBy: String?
+
+    /// Returns false when the tap could not be armed. Nothing is prompted for:
+    /// both checks are preflights, and `tapCreate` is only reached once at
+    /// least one grant is already in place.
+    ///
+    /// Input Monitoring is the grant that matters for a `.listenOnly`
+    /// keyboard tap; Accessibility also permits one. Requiring both would
+    /// refuse a machine that has the right one, so this needs *either* and
+    /// then verifies the tap really came up.
+    /// Events the global tap has actually seen. The preflight APIs report
+    /// what TCC has on file; this reports what arrived.
+    var globalEventCount = 0
+
+    /// Arm the system-wide tap.
+    ///
+    /// `tapCreate` is attempted unconditionally. The preflight APIs report
+    /// what TCC has on file, and for an ad-hoc-signed bundle that is not a
+    /// reliable predictor of whether a tap will be permitted — gating on them
+    /// can refuse a machine where the tap would in fact have worked. So they
+    /// are used only to explain a failure, never to cause one.
+    ///
+    /// The authority is: did a tap come back, and is it enabled.
     @discardableResult
     func startGlobal() -> Bool {
         guard tap == nil else { return globalActive }
-        guard hasAccessibility else { return false }
         let mask = (1 << CGEventType.keyDown.rawValue)
                  | (1 << CGEventType.keyUp.rawValue)
                  | (1 << CGEventType.flagsChanged.rawValue)
                  | (1 << CGEventType.leftMouseDown.rawValue)
                  | (1 << CGEventType.rightMouseDown.rawValue)
         let cb: CGEventTapCallBack = { _, type, event, _ in
+            KeyMonitor.shared.globalEventCount += 1
             if type == .leftMouseDown || type == .rightMouseDown {
                 UsageStore.shared.countClick()
                 SoundEngine.shared.playClick()
@@ -57,13 +90,40 @@ final class KeyMonitor {
         guard let t = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
                                         options: .listenOnly,
                                         eventsOfInterest: CGEventMask(mask),
-                                        callback: cb, userInfo: nil) else { return false }
+                                        callback: cb, userInfo: nil) else {
+            blockedBy = "macOS refused the tap — grant Input Monitoring to "
+                      + Bundle.main.bundlePath
+            return false
+        }
         tap = t
         let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, t, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
         CGEvent.tapEnable(tap: t, enable: true)
+        // A tap can come back and still not be live, silently.
+        guard CGEvent.tapIsEnabled(tap: t) else {
+            blockedBy = "the tap was created but macOS left it disabled"
+            return false
+        }
         globalActive = true
+        blockedBy = nil
         return true
+    }
+
+    /// Ask for both grants. Only ever called from an explicit user action —
+    /// the `--grant` flag — never at launch.
+    func requestAccess() {
+        _ = AXIsProcessTrustedWithOptions(
+            [kAXTrustedCheckOptionPrompt.takeUnretainedValue(): true] as CFDictionary)
+        _ = CGRequestListenEventAccess()
+    }
+
+    /// Open the two panes directly, since finding them by hand is the actual
+    /// obstacle.
+    static func openSettingsPanes() {
+        for p in ["Privacy_ListenEvent", "Privacy_Accessibility"] {
+            NSWorkspace.shared.open(
+                URL(string: "x-apple.systempreferences:com.apple.preference.security?\(p)")!)
+        }
     }
 
     private func handle(_ e: NSEvent) {

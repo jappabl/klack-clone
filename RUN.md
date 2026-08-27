@@ -43,8 +43,8 @@ It makes sound now.
 
 - **Immediately, no permission:** launch it and type into one of its own windows.
   A local key monitor drives the audio whenever a Klack window is focused.
-- **System-wide:** needs Accessibility (System Settings ▸ Privacy & Security ▸
-  Accessibility). The app checks `AXIsProcessTrusted()` and never prompts on its
+- **System-wide:** needs Input Monitoring (System Settings ▸ Privacy & Security ▸
+  Input Monitoring). The app never prompts on its
   own; grant it there and relaunch. It prints `global=on` at launch when active.
 
 Click a switch in the switches panel to load and preview that set. The popover's

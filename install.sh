@@ -64,20 +64,30 @@ say "Installed to $DEST/Klack.app"
 # --- permissions -----------------------------------------------------------
 echo
 if "$DEST/Klack.app/Contents/MacOS/Klack" --settings-dump >/dev/null 2>&1; then :; fi
-warn "System-wide sound needs Accessibility."
+warn "System-wide sound needs Input Monitoring."
 cat <<'TXT'
   Without it the app still makes sound, but only while one of its own windows
   is focused. It never prompts on its own — grant it here:
 
-    System Settings ▸ Privacy & Security ▸ Accessibility ▸ + ▸ Klack
+    System Settings > Privacy & Security > Input Monitoring > + > Klack
+
+  Input Monitoring, not Accessibility: a listen-only keyboard tap is gated by
+  kTCCServiceListenEvent. Accessibility also permits one, so either works, but
+  Input Monitoring is the one to reach for.
+
+  If you have installed over a previous copy, REMOVE the old Klack entry with
+  the minus button before adding it again. macOS pins the grant to the app's
+  code hash, so an entry left over from an earlier build will not match this
+  one, and toggling it on does nothing.
 
 TXT
 if [ -t 0 ]; then
   read -r -p "Open that pane now? [y/N] " a
   case "$a" in
-    [yY]*) open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility" ;;
+    [yY]*) open "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent" ;;
   esac
 fi
+echo "Check it worked at any time with:  open -a Klack --args --tap-test"
 
 echo
 say "Run it:"

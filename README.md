@@ -45,10 +45,30 @@ The menu bar shows a **K** keycap; clicking it opens the popover. Shortcuts:
 
 ## Sound
 
-It needs **Accessibility** to hear keystrokes system-wide — System Settings ▸
-Privacy & Security ▸ Accessibility. It checks `AXIsProcessTrusted()` and never
-prompts on its own. Without it the app still works, but only while one of its
-own windows is focused. It prints `global=on` at launch when the tap is live.
+It needs **Input Monitoring** to hear keystrokes system-wide — System Settings ▸
+Privacy & Security ▸ Input Monitoring. A listen-only keyboard tap is gated by
+`kTCCServiceListenEvent`; Accessibility also permits one, so either grant
+works. It never prompts on its own. Without it the app still works, but only
+while one of its own windows is focused.
+
+Two things that will otherwise waste your afternoon:
+
+- **Installing over a previous copy invalidates the grant.** macOS pins it to
+  the app's code hash, so an entry left from an earlier build does not match
+  the new binary — remove it with **−** and add it again, because toggling it
+  does nothing. `tools/setup-signing.sh` makes the grant survive rebuilds.
+- **Do not check the permission by running the binary from a terminal.** A
+  process launched from a trusted shell inherits that shell's trust as the
+  responsible process, so it reports success whether or not the app itself has
+  the grant. Ask the app instead:
+
+```bash
+open -a Klack --args --tap-test
+```
+
+  It arms the tap, listens for 12 seconds, and writes what actually arrived to
+  `~/Library/Application Support/KlackClone/launch.log`. `EVENTS SEEN: 0` with
+  a tap that reports enabled means the grant is not in effect.
 
 Seven switch sets, 139 individually sliced samples, mixed through a 32-voice
 engine with a hand-written brickwall limiter. Hear them all without installing

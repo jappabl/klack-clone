@@ -50,6 +50,12 @@ final class Settings {
 
     var path: String { url.path }
 
+    /// Launch diagnostics, next to the settings file.
+    func log(_ text: String) {
+        let f = url.deletingLastPathComponent().appendingPathComponent("launch.log")
+        try? text.appending("\n").write(to: f, atomically: true, encoding: .utf8)
+    }
+
     private func changed() {
         guard !loading else { return }
         apply()

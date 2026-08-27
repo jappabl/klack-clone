@@ -37,4 +37,22 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>NSHighResolutionCapable</key><true/>
 </dict></plist>
 PLIST
+# Sign with a real identity when one exists, ad-hoc otherwise.
+#
+# This is not cosmetic. macOS pins a TCC grant (Input Monitoring, in this
+# app's case) to a code signing requirement. Ad-hoc and unsigned bundles get a
+# requirement pinned to the code hash, so every rebuild silently invalidates
+# the grant and the app goes deaf until the entry is removed and re-added.
+# Signing with a certificate pins it to the identifier plus the certificate
+# instead, and the grant survives rebuilds. See tools/setup-signing.sh.
+ID="Klack Local Signing"
+if security find-identity -v -p codesigning 2>/dev/null | grep -q "$ID"; then
+  codesign --force --sign "$ID" --identifier com.clone.klack "$APP"
+  echo "signed with: $ID"
+else
+  codesign --force --sign - --identifier com.clone.klack "$APP" 2>/dev/null || true
+  echo "signed ad-hoc — Input Monitoring will need re-granting after each rebuild"
+  echo "  (run tools/setup-signing.sh once to stop that)"
+fi
+
 echo "built $APP"

@@ -795,7 +795,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             fflush(stdout)
         }
         print("audio: engine=\(SoundEngine.shared.isRunning) switch=\(SoundEngine.shared.loadedName) "
-            + "global=\(global ? "on" : "off (needs Accessibility)") local=on")
+            + "global=\(global ? "on" : "off") local=on")
+        let km = KeyMonitor.shared
+        var line = "perm: accessibility=\(km.hasAccessibility) "
+            + "inputMonitoring=\(km.hasInputMonitoring) tapEnabled=\(km.tapEnabled)"
+        if let b = km.blockedBy { line += "  BLOCKED BY: \(b)" }
+        print(line)
+        // Also to a file: launched from Finder there is no stdout to read, and
+        // this is precisely the case whose permissions differ from a launch
+        // out of a terminal (which lends the app its parent's trust).
+        Settings.shared.log("audio: switch=\(SoundEngine.shared.loadedName)\n" + line)
         fflush(stdout)
         item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         item.button?.image = keycapImage()
@@ -919,6 +928,47 @@ if args.contains("--devices") {
     }
     print("\nsetting: \(Settings.shared.playSoundThrough)")
     print("engine is on: \(SoundEngine.shared.currentOutputName)")
+    exit(0)
+} else if args.contains("--tap-test") {
+    // Arms the tap regardless of what the preflight says, then reports what
+    // actually arrived. The preflight describes TCC's records; only this
+    // describes whether the tap works.
+    app.setActivationPolicy(.prohibited)
+    let km = KeyMonitor.shared
+    let armed = km.startGlobal()
+    let pre = "preflight: accessibility=\(km.hasAccessibility) inputMonitoring=\(km.hasInputMonitoring)"
+    let arm = "tapCreate=\(armed ? "ok" : "FAILED — \(km.blockedBy ?? "?")") enabled=\(km.tapEnabled)"
+    Settings.shared.log("\(pre)\n\(arm)\nlistening 12s…")
+    print(pre); print(arm)
+    RunLoop.main.run(until: Date().addingTimeInterval(12))
+    let res = "\(pre)\n\(arm)\nEVENTS SEEN: \(km.globalEventCount)"
+    Settings.shared.log(res)
+    print("EVENTS SEEN: \(km.globalEventCount)")
+    exit(0)
+} else if args.contains("--grant") {
+    // User-initiated only. Prints the state, opens both panes, and asks —
+    // the app never does any of this on its own at launch.
+    app.setActivationPolicy(.prohibited)
+    let km = KeyMonitor.shared
+    print("before:  accessibility=\(km.hasAccessibility) inputMonitoring=\(km.hasInputMonitoring)")
+    if km.hasAccessibility || km.hasInputMonitoring {
+        print("Already granted. Relaunch Klack and typing anywhere will sound.")
+        exit(0)
+    }
+    KeyMonitor.openSettingsPanes()
+    km.requestAccess()
+    print("""
+
+    Two panes just opened. In each one, add or tick:
+
+        \(Bundle.main.bundlePath)
+
+    Input Monitoring is the one that matters for keystrokes; Accessibility
+    also works. Granting either is enough. Then relaunch Klack.
+    """)
+    // Stay alive so the system prompts have a process to belong to; exiting
+    // straight away can drop them before they are shown.
+    RunLoop.main.run(until: Date().addingTimeInterval(12))
     exit(0)
 } else if args.contains("--settings-dump") {
     app.setActivationPolicy(.prohibited)
