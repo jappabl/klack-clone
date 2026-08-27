@@ -1,0 +1,23 @@
+# Build output
+app/build/
+build/
+node_modules/
+.DS_Store
+
+# Reference material — scraped from tryklack.com, the App Store listing and
+# YouTube reviews for measurement. Third-party copyright; not redistributable.
+# The clone was measured against it, but it is not part of the clone.
+ref/
+
+# Vendor artwork pulled from cdn.tryklack.com for the measurement backdrop.
+# Stage.swift falls back to a solid fill when these are absent.
+assets/wallpaper*
+assets/app-icon.*
+assets/alcove-app-icon.*
+assets/icon.png
+
+# Render/diff output from the verification harness (245 PNGs, ~119 MB). Many
+# are composites against the reference above, so they inherit its restrictions.
+shots/*
+!shots/klack-switches-demo.wav
+assets/logo/Klack.iconset/
