@@ -1,11 +1,11 @@
 # Running the Klack clone
 
-Built app: `/Users/hlin/klick/app/build/Klack.app`
+Built app: `app/build/Klack.app` (paths below are relative to the repo root)
 
 ## Settings window (most reliable)
 
 ```bash
-/Users/hlin/klick/app/build/Klack.app/Contents/MacOS/Klack --settings
+app/build/Klack.app/Contents/MacOS/Klack --settings
 ```
 
 Opens the settings window directly. Click the sidebar to switch panes —
@@ -16,7 +16,7 @@ Scroll the Sound pane to reach the Tone Pad and Sound Effects.
 ## Menu bar app
 
 ```bash
-open /Users/hlin/klick/app/build/Klack.app
+open app/build/Klack.app
 ```
 
 Runs as an accessory app: a "K" keycap appears in the menu bar, and clicking it
@@ -31,7 +31,7 @@ Shortcuts: ⌥⌘K toggle · ⌘, settings · ⌘Q quit · Esc dismiss.
 ## Both panels, floating, for a fixed time
 
 ```bash
-/Users/hlin/klick/app/build/Klack.app/Contents/MacOS/Klack --demo 30
+app/build/Klack.app/Contents/MacOS/Klack --demo 30
 ```
 
 Shows the popover and the switches panel over the desktop for 30 seconds, then
@@ -53,7 +53,7 @@ toggle and volume slider drive the engine live.
 Hear all seven without running anything:
 
 ```bash
-open /Users/hlin/klick/shots/klack-switches-demo.wav
+open shots/klack-switches-demo.wav
 ```
 
 27 seconds, one typing burst per switch in catalogue order.

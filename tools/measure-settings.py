@@ -7,6 +7,8 @@ compression, in points, at each image's own scale.
 """
 import sys, numpy as np
 from PIL import Image
+import os
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def measure(path, ox, oy, scale, label):
     im = np.asarray(Image.open(path).convert('RGB'), float)
@@ -58,6 +60,6 @@ def measure(path, ox, oy, scale, label):
     return out
 
 if __name__ == '__main__':
-    a = measure('/Users/hlin/klick/ref/video/win50.png', 30, 20, 1.946, 'REFERENCE frame t=50s')
+    a = measure(f'{ROOT}/ref/video/win50.png', 30, 20, 1.946, 'REFERENCE frame t=50s')
     print()
-    b = measure('/Users/hlin/klick/shots/settings-clone.png', 0, 0, 1.946, 'CLONE render')
+    b = measure(f'{ROOT}/shots/settings-clone.png', 0, 0, 1.946, 'CLONE render')

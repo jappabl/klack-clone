@@ -7,6 +7,8 @@ The mapping onto Klack's switch names is nominal: each CC0 recording was chosen
 because its character (clicky / linear / thocky) is the closest available match.
 """
 import re, subprocess, sys, os, json
+import os
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SOURCES = [
     # klack switch          freesound user            id       what was recorded
@@ -20,7 +22,7 @@ SOURCES = [
     ("Super Red",       "eclectic-kitty",  "757638", "Ducky X Varmilo, brown switches"),
     ("Cream",           "seth-m",          "269713", "Thermaltake Poseidon Z, Cherry MX Blue"),
 ]
-OUT = "/Users/hlin/klick/ref/audio"
+OUT = f"{ROOT}/ref/audio"
 os.makedirs(OUT, exist_ok=True)
 
 def get(url):

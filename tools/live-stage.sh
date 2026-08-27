@@ -1,6 +1,6 @@
 #!/bin/bash
 # Put the reference composition on screen, float the real panels over it, capture, diff.
-R=/Users/hlin/klick; D=/Users/hlin/.claude/skills/cloning-apps/scripts/diff-ui.py
+R="$(cd "$(dirname "$0")/.." && pwd)"; D="${DIFF_UI:-$HOME/.claude/skills/cloning-apps/scripts/diff-ui.py}"
 APP="$R/app/build/Klack.app/Contents/MacOS/Klack"
 cd "$R"
 EXTRA="$@"
@@ -10,7 +10,7 @@ screencapture -x -o "$R/shots/onscreen-raw.png"
 python3 - <<'PY'
 import math, io
 from PIL import Image, ImageCms
-im = Image.open('/Users/hlin/klick/shots/onscreen-raw.png')
+im = Image.open(os.environ['R']+'/shots/onscreen-raw.png')
 # screencapture writes the *display* profile (Display P3 here). PIL ignores the
 # profile and hands back raw values, which is exactly the sRGB-vs-P3 shift that
 # made the teal read (87,185,168) instead of (0,187,167). Convert properly.
@@ -24,7 +24,7 @@ else:
     im = im.convert('RGB'); print('capture had no embedded profile')
 r = lambda v: math.floor(v + 0.5)
 for n,(x,y,w,h) in {'pop':(900,200,288,370.5),'sw':(32,196.5,328,551)}.items():
-    im.crop((r(x)*2,r(y)*2,(r(x)+r(w))*2,(r(y)+r(h))*2)).save(f'/Users/hlin/klick/shots/live-{n}.png')
+    im.crop((r(x)*2,r(y)*2,(r(x)+r(w))*2,(r(y)+r(h))*2)).save(fos.environ['R']+'/shots/live-{n}.png')
 PY
 tail -3 /tmp/live-stage.log
 for n in pop sw; do

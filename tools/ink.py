@@ -3,6 +3,8 @@
 Compares reference vs clone so the baseline model can be calibrated, not guessed."""
 import sys, numpy as np
 from PIL import Image
+import os
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 def load(p): return np.asarray(Image.open(p).convert('L'), dtype=float)
 def ink(img, box, dark=True):
     x0,y0,x1,y1=box
@@ -17,8 +19,8 @@ def ink(img, box, dark=True):
     cen=(rows*np.arange(len(rows))).sum()/rows.sum()
     return y0+idx[0], y0+idx[-1], y0+cen
 def main(which, runs):
-    ref=load(f'/Users/hlin/klick/shots/ref-{which}.png')
-    clo=load(f'/Users/hlin/klick/shots/clone/clone-{which}.png')
+    ref=load(f'{ROOT}/shots/ref-{which}.png')
+    clo=load(f'{ROOT}/shots/clone/clone-{which}.png')
     print(f'[{which}]  (device px; 2 device px = 1 logical px)')
     print(f'  {"run":22s} {"ref top/bot/centroid":>28s} {"clone top/bot/centroid":>28s}   dCentroid')
     for name,box,lt,fs in runs:

@@ -258,7 +258,7 @@ final class SurfacePanel: NSPanel {
             if CommandLine.arguments.contains("--dump-backdrop"),
                let d = NSBitmapImageRep(cgImage: conv).representation(using: .png, properties: [:]) {
                 let tag = self.host.surface == .popover ? "pop" : "sw"
-                try? d.write(to: URL(fileURLWithPath: "/Users/hlin/klick/shots/sck-\(tag).png"))
+                try? d.write(to: Paths.shots("sck-\(tag).png"))
             }
             self.host.backdrop = conv
             self.host.backdropOriginCSS = CGPoint(x: ins.left, y: ins.top)
@@ -1022,7 +1022,7 @@ if args.contains("--devices") {
         // return-key only, so the render contains just the effect
         strokes = (0..<6).map { (0.2 + Double($0) * 0.35, true, Float(0)) }
     }
-    let out = URL(fileURLWithPath: "/Users/hlin/klick/shots/sound-test.wav")
+    let out = Paths.shots("sound-test.wav")
     try? FileManager.default.removeItem(at: out)
     do {
         try e.renderOffline(seconds: t + 0.5, to: out, strokes: strokes)
@@ -1047,7 +1047,7 @@ if args.contains("--devices") {
                                perSwitch: ["Super Red": 474_956, "Japanese Black": 4, "Cream": 1],
                                since: f.date(from: "Apr 30, 2026") ?? Date())
     }
-    let out = "/Users/hlin/klick/shots/settings-clone.png"
+    let out = Paths.shots("settings-clone.png").path
     renderSettings(out: out, scale: sc, pane: pane, scrollY: sy)
     exit(0)
 } else if args.contains("--settings") {
@@ -1066,11 +1066,11 @@ if args.contains("--devices") {
     exit(0)
 } else if args.contains("--vectorfloor") {
     app.setActivationPolicy(.prohibited)
-    runVectorFloor(out: "/Users/hlin/klick/shots/vectorfloor-clone.png")
+    runVectorFloor(out: Paths.shots("vectorfloor-clone.png").path)
     exit(0)
 } else if args.contains("--glyphfloor") {
     app.setActivationPolicy(.prohibited)
-    runGlyphFloor(out: "/Users/hlin/klick/shots/glyphfloor-clone.png")
+    runGlyphFloor(out: Paths.shots("glyphfloor-clone.png").path)
     exit(0)
 } else if let i = args.firstIndex(of: "--verify") {
     let out = (i + 1 < args.count && !args[i+1].hasPrefix("--")) ? args[i+1] : "shots"

@@ -8,10 +8,12 @@ and normalise each one, and write per-switch variant sets.
 import json, os, subprocess, sys, glob
 import numpy as np
 import wave
+import os
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 SR = 48000
-SRC = "/Users/hlin/klick/ref/audio"
-OUT = "/Users/hlin/klick/assets/switches"
+SRC = f"{ROOT}/ref/audio"
+OUT = f"{ROOT}/assets/switches"
 
 def decode(path):
     p = subprocess.run(["ffmpeg","-v","error","-i",path,"-ac","1","-ar",str(SR),

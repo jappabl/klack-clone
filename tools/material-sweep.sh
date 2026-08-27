@@ -1,7 +1,7 @@
 #!/bin/bash
 # Which NSVisualEffectView material best matches `backdrop-filter: blur(24px)`?
 # Runs the on-screen stage once per configuration and diffs both panels.
-R=/Users/hlin/klick; D=/Users/hlin/.claude/skills/cloning-apps/scripts/diff-ui.py
+R="$(cd "$(dirname "$0")/.." && pwd)"; D="${DIFF_UI:-$HOME/.claude/skills/cloning-apps/scripts/diff-ui.py}"
 APP="$R/app/build/Klack.app/Contents/MacOS/Klack"
 cd "$R"
 crop() {  # capture -> crop both panels

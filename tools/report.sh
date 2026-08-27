@@ -1,5 +1,5 @@
 #!/bin/bash
-R=/Users/hlin/klick; D=/Users/hlin/.claude/skills/cloning-apps/scripts/diff-ui.py
+R="$(cd "$(dirname "$0")/.." && pwd)"; D="${DIFF_UI:-$HOME/.claude/skills/cloning-apps/scripts/diff-ui.py}"
 cd "$R"
 d(){ python3 "$D" "$1" "$2" --threshold "${3:-6}" | grep -E "differing pixels" | sed 's/.*: //'; }
 echo "########## FLOORS ##########"

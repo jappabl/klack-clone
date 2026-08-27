@@ -4,6 +4,8 @@ residual left at that shift. A non-zero best shift is a bug I can fix; a
 zero shift with residual left is rasteriser difference."""
 import sys, numpy as np
 from PIL import Image
+import os
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def load(p): return np.asarray(Image.open(p).convert('L'), dtype=float)
 
@@ -27,8 +29,8 @@ def fit(ref, clo, box, name, rng=4):
 
 if __name__=='__main__':
     which = sys.argv[1]
-    ref = load(f'/Users/hlin/klick/shots/ref-{which}.png')
-    clo = load(f'/Users/hlin/klick/shots/clone/clone-{which}.png')
+    ref = load(f'{ROOT}/shots/ref-{which}.png')
+    clo = load(f'{ROOT}/shots/clone/clone-{which}.png')
     def B(x,y,w,h): return (int(x*2),int(y*2),int((x+w)*2),int((y+h)*2))
     if which=='pop':
         runs=[('"Klack"',B(24,17,50,22.5)),('"Sound"',B(24,60.5,50,20)),

@@ -1,7 +1,7 @@
 #!/bin/bash
 # Re-render the clone and diff every surface + state against the reference.
-R=/Users/hlin/klick
-D=/Users/hlin/.claude/skills/cloning-apps/scripts/diff-ui.py
+R="$(cd "$(dirname "$0")/.." && pwd)"
+D="${DIFF_UI:-$HOME/.claude/skills/cloning-apps/scripts/diff-ui.py}"
 cd "$R"
 "$R/app/build/Klack.app/Contents/MacOS/Klack" --verify "$R/shots/clone" --backdrop --states >/dev/null 2>&1
 echo "=== floor: same window rendered twice ==="
