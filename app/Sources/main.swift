@@ -780,6 +780,7 @@ func runVectorFloor(out: String) {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var item: NSStatusItem!
     var popover: SurfacePanel!
+    private var outsideClick: Any?
     var switches: SurfacePanel!
     var settings: SettingsWindowController?
 
@@ -888,14 +889,60 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func toggle() {
-        if popover.isVisible { popover.orderOut(nil); switches.orderOut(nil); return }
+        if popover.isVisible { dismiss(); return }
         guard let b = item.button, let w = b.window else { return }
         let f = w.convertToScreen(b.convert(b.bounds, to: nil))
         let ins = popover.host.shadowInset
-        popover.setFrameOrigin(CGPoint(x: f.midX - popover.frame.width/2,
-                                       y: f.minY - popover.frame.height + ins.bottom - 6))
+
+        // The panel is larger than the popover you can see: the drawn shadow
+        // is inset 20pt at the top and 60pt at the bottom. So placement has to
+        // work in *content* edges, not window edges. Using ins.bottom here put
+        // the content 40pt too high — up over the status item, which then
+        // could not be clicked to dismiss, and into the notch on a notched
+        // display.
+        let gap: CGFloat = 6
+        let scr = w.screen ?? NSScreen.main
+        var top = f.minY - gap
+        var x = f.midX - popover.frame.width / 2
+        if let v = scr?.visibleFrame {
+            // visibleFrame already excludes the menu bar, and on a notched
+            // display it excludes the notch with it. Never go above it.
+            top = min(top, v.maxY - gap)
+            // Keep the visible popover on screen when the status item sits
+            // near an edge — menu bar extras crowd to the right.
+            let contentW = popover.frame.width - ins.left - ins.right
+            x = min(max(x, v.minX + 8 - ins.left),
+                    v.maxX - 8 - contentW - ins.left)
+        }
+        popover.setFrameOrigin(CGPoint(x: x, y: top + ins.top - popover.frame.height))
         popover.makeKeyAndOrderFront(nil)     // so the shortcuts reach it
         popover.refreshBackdrop(nil)
+        watchForOutsideClick()
+    }
+
+    func dismiss() {
+        popover.orderOut(nil)
+        switches.orderOut(nil)
+        if let m = outsideClick { NSEvent.removeMonitor(m); outsideClick = nil }
+    }
+
+    /// Clicking away closes it, the way every other menu bar item behaves.
+    /// Mouse events need no permission for a global monitor; only key events do.
+    private func watchForOutsideClick() {
+        guard outsideClick == nil else { return }
+        outsideClick = NSEvent.addGlobalMonitorForEvents(
+            matching: [.leftMouseDown, .rightMouseDown]
+        ) { [weak self] _ in
+            guard let self else { return }
+            let p = NSEvent.mouseLocation
+            if popover.frame.contains(p) { return }
+            if switches.isVisible, switches.frame.contains(p) { return }
+            // A click on the status item is toggle()'s to handle; dismissing
+            // here first would let it reopen immediately.
+            if let b = item.button, let w = b.window,
+               w.convertToScreen(b.convert(b.bounds, to: nil)).contains(p) { return }
+            dismiss()
+        }
     }
 
     func showSettings() {
@@ -929,6 +976,43 @@ if args.contains("--devices") {
     print("\nsetting: \(Settings.shared.playSoundThrough)")
     print("engine is on: \(SoundEngine.shared.currentOutputName)")
     exit(0)
+} else if args.contains("--popover-check") {
+    // Opens the popover through the real toggle() path and checks it against
+    // the live screen, rather than trusting the arithmetic.
+    let d = AppDelegate()
+    app.delegate = d
+    app.setActivationPolicy(.accessory)
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+        d.toggle()
+        guard let b = d.item.button, let w = b.window, let scr = w.screen else {
+            print("no status item"); exit(1)
+        }
+        let sb = w.convertToScreen(b.convert(b.bounds, to: nil))
+        let v = scr.visibleFrame, fr = scr.frame
+        let ins = d.popover.host.shadowInset
+        let win = d.popover.frame
+        // what you actually see, with the drawn shadow margin removed
+        let content = CGRect(x: win.minX + ins.left, y: win.minY + ins.bottom,
+                             width: win.width - ins.left - ins.right,
+                             height: win.height - ins.top - ins.bottom)
+        print("screen        \(Int(fr.width))x\(Int(fr.height))  visibleFrame maxY \(Int(v.maxY))")
+        print("menu bar      \(Int(fr.maxY - v.maxY))pt tall\(scr.safeAreaInsets.top > 0 ? "  NOTCHED (safeArea top \(Int(scr.safeAreaInsets.top)))" : ""))")
+        print("status item   x \(Int(sb.minX))–\(Int(sb.maxX))  y \(Int(sb.minY))–\(Int(sb.maxY))")
+        print("popover shown x \(Int(content.minX))–\(Int(content.maxX))  top \(Int(content.maxY))")
+        var bad = 0
+        func check(_ ok: Bool, _ what: String) {
+            print((ok ? "  PASS  " : "  FAIL  ") + what); if !ok { bad += 1 }
+        }
+        check(content.maxY <= sb.minY, "clear of the status item (top \(Int(content.maxY)) <= icon bottom \(Int(sb.minY)))")
+        check(content.maxY <= v.maxY,  "below the menu bar, so clear of the notch (top \(Int(content.maxY)) <= \(Int(v.maxY)))")
+        check(content.minX >= v.minX && content.maxX <= v.maxX, "within the screen horizontally")
+        check(!content.intersects(sb), "does not overlap the icon's rect at all")
+        print(bad == 0 ? "\nALL PASS" : "\n\(bad) FAILED")
+        if args.contains("--hold") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 20) { exit(bad == 0 ? 0 : 1) }
+        } else { exit(bad == 0 ? 0 : 1) }
+    }
+    app.run()
 } else if args.contains("--tap-test") {
     // Arms the tap regardless of what the preflight says, then reports what
     // actually arrived. The preflight describes TCC's records; only this
