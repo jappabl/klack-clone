@@ -976,6 +976,59 @@ if args.contains("--devices") {
     print("\nsetting: \(Settings.shared.playSoundThrough)")
     print("engine is on: \(SoundEngine.shared.currentOutputName)")
     exit(0)
+} else if args.contains("--fnkey-test") {
+    // Decodes synthetic NX_SYSDEFINED events rather than posting real ones,
+    // so checking this does not change the machine's brightness or volume.
+    app.setActivationPolicy(.prohibited)
+    let names: [(Int, String)] = [
+        (3, "brightness down"), (2, "brightness up"), (22, "illum down"),
+        (21, "illum up"), (18, "previous"), (20, "rewind"), (16, "play/pause"),
+        (17, "next"), (19, "fast fwd"), (7, "mute"), (1, "volume down"),
+        (0, "volume up"),
+    ]
+    let fname: [UInt16: String] = [122: "F1", 120: "F2", 99: "F3", 118: "F4",
+        96: "F5", 97: "F6", 98: "F7", 100: "F8", 101: "F9", 109: "F10",
+        103: "F11", 111: "F12", 53: "esc"]
+    var bad = 0
+    print("media key          -> key   pan")
+    for (code, label) in names {
+        guard let ns = NSEvent.otherEvent(
+                with: .systemDefined, location: .zero, modifierFlags: [],
+                timestamp: 0, windowNumber: 0, context: nil,
+                subtype: 8, data1: (code << 16) | 0x0A00, data2: -1),
+              let cg = ns.cgEvent, let aux = KeyMonitor.auxKey(cg) else {
+            print(String(format: "  %-16s -> DECODE FAILED", (label as NSString).utf8String!))
+            bad += 1; continue
+        }
+        let pan = KeyMonitor.pan(for: aux.key)
+        print("  \(label.padding(toLength: 16, withPad: " ", startingAt: 0)) -> "
+            + "\(fname[aux.key] ?? "?")".padding(toLength: 6, withPad: " ", startingAt: 0)
+            + String(format: "%+.2f", pan) + (aux.down ? "" : "  (up?)"))
+        if !aux.down { bad += 1 }
+    }
+    print("\nfunction row pan spread (should run left to right):")
+    let row: [UInt16] = [53, 122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111]
+    var last = -2.0 as Float
+    var monotonic = true
+    for k in row {
+        let p = KeyMonitor.pan(for: k)
+        if p <= last { monotonic = false }
+        last = p
+    }
+    print("  " + row.map { String(format: "%+.2f", KeyMonitor.pan(for: $0)) }.joined(separator: " "))
+    print(monotonic ? "  PASS  strictly left-to-right" : "  FAIL  not ordered")
+    if !monotonic { bad += 1 }
+    // repeats must be dropped, or a held key machine-guns
+    if let r = NSEvent.otherEvent(with: .systemDefined, location: .zero, modifierFlags: [],
+                                  timestamp: 0, windowNumber: 0, context: nil,
+                                  subtype: 8, data1: (16 << 16) | 0x0A01, data2: -1),
+       let cg = r.cgEvent {
+        let dropped = KeyMonitor.auxKey(cg) == nil
+        print(dropped ? "  PASS  key repeats dropped" : "  FAIL  key repeat not dropped")
+        if !dropped { bad += 1 }
+    }
+    print(bad == 0 ? "\nALL PASS" : "\n\(bad) FAILED")
+    exit(bad == 0 ? 0 : 1)
 } else if args.contains("--popover-check") {
     // Opens the popover through the real toggle() path and checks it against
     // the live screen, rather than trusting the arithmetic.
@@ -1026,6 +1079,7 @@ if args.contains("--devices") {
     print(pre); print(arm)
     RunLoop.main.run(until: Date().addingTimeInterval(12))
     let res = "\(pre)\n\(arm)\nEVENTS SEEN: \(km.globalEventCount)"
+            + "   of which function-row/media: \(km.auxEventCount)"
     Settings.shared.log(res)
     print("EVENTS SEEN: \(km.globalEventCount)")
     exit(0)

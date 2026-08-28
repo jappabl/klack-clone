@@ -35,7 +35,8 @@ final class KeyMonitor {
     func startLocal() {
         guard local == nil else { return }
         local = NSEvent.addLocalMonitorForEvents(
-            matching: [.keyDown, .keyUp, .flagsChanged, .leftMouseDown, .rightMouseDown]
+            matching: [.keyDown, .keyUp, .flagsChanged, .leftMouseDown, .rightMouseDown,
+                       .systemDefined]
         ) { [weak self] e in
             self?.handle(e); return e
         }
@@ -56,6 +57,10 @@ final class KeyMonitor {
     /// what TCC has on file; this reports what arrived.
     var globalEventCount = 0
 
+    /// Counted separately from `globalEventCount`, because the top row is the
+    /// thing being measured and ordinary typing swamps a combined total.
+    var auxEventCount = 0
+
     /// Arm the system-wide tap.
     ///
     /// `tapCreate` is attempted unconditionally. The preflight APIs report
@@ -73,11 +78,23 @@ final class KeyMonitor {
                  | (1 << CGEventType.flagsChanged.rawValue)
                  | (1 << CGEventType.leftMouseDown.rawValue)
                  | (1 << CGEventType.rightMouseDown.rawValue)
+                 | (1 << KeyMonitor.systemDefined)
         let cb: CGEventTapCallBack = { _, type, event, _ in
             KeyMonitor.shared.globalEventCount += 1
             if type == .leftMouseDown || type == .rightMouseDown {
                 UsageStore.shared.countClick()
                 SoundEngine.shared.playClick()
+                return Unmanaged.passUnretained(event)
+            }
+            // The top row of a Mac keyboard does not emit key events at all —
+            // brightness, volume, playback and keyboard backlight arrive as
+            // NX_SYSDEFINED instead, carrying their key in data1 rather than
+            // in a keycode field. Without this the whole function row is silent.
+            if type.rawValue == KeyMonitor.systemDefined {
+                if let aux = KeyMonitor.auxKey(event) {
+                    KeyMonitor.shared.auxEventCount += 1
+                    KeyMonitor.shared.trigger(keyCode: aux.key, down: aux.down)
+                }
                 return Unmanaged.passUnretained(event)
             }
             let code = UInt16(event.getIntegerValueField(.keyboardEventKeycode))
@@ -130,6 +147,10 @@ final class KeyMonitor {
         switch e.type {
         case .keyDown where !e.isARepeat: trigger(keyCode: e.keyCode, down: true)
         case .keyUp:                      trigger(keyCode: e.keyCode, down: false)
+        case .systemDefined:
+            if let cg = e.cgEvent, let aux = KeyMonitor.auxKey(cg) {
+                trigger(keyCode: aux.key, down: aux.down)
+            }
         case .leftMouseDown, .rightMouseDown:
             UsageStore.shared.countClick()
             SoundEngine.shared.playClick()
@@ -147,6 +168,44 @@ final class KeyMonitor {
                                 isReturn: keyCode == 36)
     }
 
+    /// `CGEventType` has no case for NX_SYSDEFINED.
+    static let systemDefined = 14
+
+    /// Decode an NX_SYSDEFINED event into the F-key sharing its physical spot.
+    ///
+    /// These carry everything packed into `data1`: the aux key in the high 16
+    /// bits, and state in the low ones — 0x0A means down, 0x0B up. Returning an
+    /// F-key rather than the aux code lets the existing column map place the
+    /// sound without a second table of positions.
+    static func auxKey(_ event: CGEvent) -> (key: UInt16, down: Bool)? {
+        guard let ns = NSEvent(cgEvent: event), ns.type == .systemDefined,
+              ns.subtype.rawValue == 8 else { return nil }
+        let d1 = ns.data1
+        let flags = d1 & 0xFFFF
+        guard flags & 0x1 == 0 else { return nil }          // key repeat
+        let state = (flags & 0xFF00) >> 8
+        guard state == 0x0A || state == 0x0B else { return nil }
+        guard let f = auxToFKey[(d1 & 0xFFFF_0000) >> 16] else { return nil }
+        return (f, state == 0x0A)
+    }
+
+    /// NX_KEYTYPE_* to the F-key occupying the same place on the top row, so a
+    /// volume key sounds from the right and a brightness key from the left.
+    private static let auxToFKey: [Int: UInt16] = [
+        3:  122,   // brightness down   F1
+        2:  120,   // brightness up     F2
+        22:  96,   // illumination down F5
+        21:  97,   // illumination up   F6
+        18:  98,   // previous          F7
+        20:  98,   // rewind            F7
+        16: 100,   // play/pause        F8
+        17: 101,   // next              F9
+        19: 101,   // fast-forward      F9
+        7:  109,   // mute              F10
+        1:  103,   // volume down       F11
+        0:  111,   // volume up         F12
+    ]
+
     // MARK: - key geometry
 
     static let modifiers: Set<UInt16> = [54, 55, 56, 57, 58, 59, 60, 61, 62, 63]
@@ -158,6 +217,7 @@ final class KeyMonitor {
     private static let column: [UInt16: Float] = {
         var m: [UInt16: Float] = [:]
         let rows: [[UInt16]] = [
+            [53, 122, 120, 99, 118, 96, 97, 98, 100, 101, 109, 103, 111], // esc F1..F12
             [50, 18, 19, 20, 21, 23, 22, 26, 28, 25, 29, 27, 24, 51],     // ` 1..0 - = ⌫
             [48, 12, 13, 14, 15, 17, 16, 32, 34, 31, 35, 33, 30, 42],     // ⇥ q..p [ ] \
             [57,  0,  1,  2,  3,  5,  4, 38, 40, 37, 41, 39, 36],         // ⇪ a..; ' ⏎

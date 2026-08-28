@@ -70,6 +70,12 @@ open -a Klack --args --tap-test
   `~/Library/Application Support/KlackClone/launch.log`. `EVENTS SEEN: 0` with
   a tap that reports enabled means the grant is not in effect.
 
+The whole keyboard sounds, including the top row. Brightness, volume, playback
+and backlight keys do not emit key events at all — they arrive as
+`NX_SYSDEFINED` — so they are decoded separately and placed at the F-key that
+occupies the same spot, which is why a volume key sounds from the right and a
+brightness key from the left.
+
 Seven switch sets, 139 individually sliced samples, mixed through a 32-voice
 engine with a hand-written brickwall limiter. Hear them all without installing
 anything: [`shots/klack-switches-demo.wav`](shots/klack-switches-demo.wav).
